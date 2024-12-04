@@ -1,3 +1,4 @@
 -----------------to get exe file-----------------
 -----------------pip install pyinstaller-----------------
 -----------------pyinstaller --onefile --windowed --hidden-import=comtypes.stream ClassEditor.py-----------------
+-----------------https://drive.google.com/file/d/1lzTMcf2RJt75rWBXxaxxQQTPqYiktAMb/view?usp=drive_link-----------------
