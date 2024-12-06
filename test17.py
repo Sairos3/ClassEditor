@@ -128,19 +128,24 @@ def add_day_schedule(day_name, class_info, table):
         if instructor == "Sonderveranstaltung" and valid_class_names:
             class_name = "IM NOT A MAGICIAN ENTER NEW THEMA!!!"
 
+        if class_name and instructor:
+            combined_text = f"{class_name} / {instructor}"
+        else:
+            combined_text = class_name if class_name else instructor
+
         if len(row) > 5:
-            row[1].text = class_name
+            row[1].text = combined_text
             row[1].merge(row[2])
             row[1].merge(row[3])
+            row[1].merge(row[4])
+            row[1].merge(row[5])
 
-            row[4].text = instructor
-            row[4].merge(row[5])
-            
             row[6].text = duration
             for paragraph in row[6].paragraphs:
                 paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
     set_table_borders(table)
+
 
 
 def set_table_properties(table, class_column_index, fixed_width=1.0):
@@ -181,7 +186,7 @@ def add_signature_line(paragraph, text):
     p_pr.append(p_borders)
 
 
-def create_schedule_document(input_file, folder_path='days', output_file='Weekly_Class_Schedules.docx', existing_file_path=None):
+def create_schedule_document(input_file, folder_path='days', output_file='Weekly_Class_Schedules.docx', existing_file_path=None, include_signature=True):
     schedule_text = read_schedule_from_file(input_file)
     class_name, oldest_date, newest_date = extract_dates_and_class(schedule_text)
     full_name = get_word_username()
@@ -200,14 +205,13 @@ def create_schedule_document(input_file, folder_path='days', output_file='Weekly
     table1.cell(1, 2).text = 'Abteilung:'
     table1.cell(1, 3).merge(table1.cell(1, 5)).text = class_name
     table1.cell(2, 0).text = 'Ausbildungswoche vom:'
-    table1.cell(2, 1).text = oldest_date.strftime("%d-%m-%Y") if oldest_date else ''
+    table1.cell(2, 1).text = oldest_date.strftime("%d.%m.%Y") if oldest_date else ''
     table1.cell(2, 2).text = 'bis:'
-    table1.cell(2, 3).text = newest_date.strftime("%d-%m-%Y") if newest_date else ''
+    table1.cell(2, 3).text = newest_date.strftime("%d.%m.%Y") if newest_date else ''
     table1.cell(2, 4).text = 'Nr.:'
     table1.cell(2, 5).text = extract_kw_numbers(schedule_text)
     cell_paragraph = table1.cell(2, 4).paragraphs[0]
     cell_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
-
 
     schedule_table = doc.add_table(rows=1, cols=8)
     schedule_table.style = 'Table Grid'
@@ -234,7 +238,11 @@ def create_schedule_document(input_file, folder_path='days', output_file='Weekly
             run.font.size = Pt(7)
     
     doc.add_paragraph()
-    signature_1 = doc.add_paragraph()
-    add_signature_line(signature_1, "Datum, Unterschrift Auszubildende/r                              Datum, Unterschrift\n                                                                                                Ausbildender oder Ausbilderin/Ausbilder")
+
+    if include_signature:
+        signature_1 = doc.add_paragraph()
+        add_signature_line(signature_1, "Datum, Unterschrift Auszubildende/r                              Datum, Unterschrift\n                                                                                                Ausbildender oder Ausbilderin/Ausbilder")
 
     doc.save(output_file)
+
+
