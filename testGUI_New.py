@@ -64,7 +64,7 @@ def update_themes_in_docx(doc_path, updated_themes):
 class ThemeEditorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Thema Editor")
+        self.root.title("ClassEditor")
         self.root.geometry("600x400")
         self.updated_themes = load_themes()
         self.class_info = []
@@ -95,20 +95,37 @@ class ThemeEditorApp:
     def create_widgets(self):
         self.class_info_label = tk.Label(self.root, text="Available Class Information:")
         self.class_info_label.pack(pady=5)
+
         self.class_info_listbox = tk.Listbox(self.root, width=70, height=10)
         self.class_info_listbox.pack(pady=5)
+
         self.rename_label = tk.Label(self.root, text="Edit Selected Class:")
         self.rename_label.pack(pady=5)
+
         self.rename_entry = tk.Entry(self.root, width=50)
         self.rename_entry.pack(pady=5)
+
         self.rename_button = tk.Button(self.root, text="Update Selected Classes", command=self.rename_class)
         self.rename_button.pack(pady=5)
+
         self.update_all_button = tk.Button(self.root, text="Update All Classes", command=self.update_all_themes)
         self.update_all_button.pack(pady=5)
-        self.save_button = tk.Button(self.root, text="Save PDF Document", command=self.save_updated_document)
-        self.save_button.pack(pady=5)
+
+        button_frame = tk.Frame(self.root)
+        button_frame.pack(pady=5)
+
+        self.save_button = tk.Button(button_frame, text="Save PDF Document", command=self.save_updated_document)
+        self.save_button.pack(side=tk.LEFT, padx=5)
+
+        self.signature_checkbox = tk.Checkbutton(button_frame, text="Digital(No Signature)", command=self.toggle_signature)
+        self.signature_checkbox.pack(side=tk.LEFT)
+
         self.status_label = tk.Label(self.root, text="", fg="green")
         self.status_label.pack(pady=5)
+
+        self.include_signature = True
+
+
 
     def load_class_info(self):
         class_info, message = extract_class_info_from_docx(SCHEDULE_DOC)
@@ -116,7 +133,7 @@ class ThemeEditorApp:
             self.class_info = class_info
             self.class_info_listbox.delete(0, tk.END)
             for day, theme, instructor in class_info:
-                self.class_info_listbox.insert(tk.END, f"{day}: {theme} - {instructor}")
+                self.class_info_listbox.insert(tk.END, f"{day}: {theme}")
         else:
             messagebox.showerror("Error", message)
 
@@ -125,32 +142,68 @@ class ThemeEditorApp:
         if not selected:
             messagebox.showwarning("Warning", "Please select a class to rename.")
             return
+        
         selected_index = selected[0]
         day, old_theme, instructor = self.class_info[selected_index]
-        new_theme = self.rename_entry.get().strip()
-        if new_theme and new_theme != old_theme:
-            self.class_info[selected_index] = (day, new_theme, instructor)
+
+        if ' / ' in old_theme:
+            theme_prefix = old_theme.split(' / ')[0]
+            theme_suffix = old_theme.split(' / ')[1]
+        else:
+            theme_prefix = old_theme
+            theme_suffix = ""
+
+        new_theme_prefix = self.rename_entry.get().strip()
+
+        if new_theme_prefix and new_theme_prefix != theme_prefix:
+            new_theme = f"{new_theme_prefix} / {theme_suffix}" if theme_suffix else new_theme_prefix
+
             self.updated_themes[old_theme] = new_theme
+
+            for i, (current_day, current_theme, current_instructor) in enumerate(self.class_info):
+                if current_theme.startswith(theme_prefix):
+                    if ' / ' in current_theme:
+                        new_theme_for_instructor = f"{new_theme_prefix} / {current_theme.split(' / ')[1]}"
+                        self.updated_themes[current_theme] = new_theme_for_instructor
+                    else:
+                        self.updated_themes[current_theme] = new_theme_prefix
+                    # Update the class_info list
+                    self.class_info[i] = (current_day, self.updated_themes[current_theme], current_instructor)
+
             save_themes(self.updated_themes)
+
+            self.class_info[selected_index] = (day, new_theme, instructor)
+
             self.refresh_class_info_list()
             self.status_label.config(text=f"Theme '{old_theme}' renamed to '{new_theme}'.", fg="green")
-        self.update_all_themes()
 
+            update_themes_in_docx(SCHEDULE_DOC, self.updated_themes)
+
+        
     def refresh_class_info_list(self):
         self.class_info_listbox.delete(0, tk.END)
         for day, theme, instructor in self.class_info:
-            self.class_info_listbox.insert(tk.END, f"{day}: {theme} - {instructor}")
+            self.class_info_listbox.insert(tk.END, f"{day}: {theme}")
 
     def update_all_themes(self):
         all_updated_themes = []
         for day, theme, instructor in self.class_info:
             updated_theme = self.updated_themes.get(theme, theme)
             all_updated_themes.append((day, updated_theme, instructor))
+        
         self.class_info_listbox.delete(0, tk.END)
         for day, updated_theme, instructor in all_updated_themes:
-            self.class_info_listbox.insert(tk.END, f"{day}: {updated_theme} - {instructor}")
+            self.class_info_listbox.insert(tk.END, f"{day}: {updated_theme}")
+        
         save_themes(self.updated_themes)
         self.status_label.config(text="All themes have been updated.", fg="green")
+
+        update_themes_in_docx(SCHEDULE_DOC, self.updated_themes)
+    
+    def toggle_signature(self):
+        self.include_signature = not self.include_signature
+        status = "included" if self.include_signature else "removed"
+        self.status_label.config(text=f"Signature section will be {status}.", fg="green")
 
     def save_updated_document(self):
         self.updated_themes = load_themes()
@@ -159,10 +212,12 @@ class ThemeEditorApp:
             messagebox.showwarning("Warning", "No valid themes to save.")
             return
         message = update_themes_in_docx(SCHEDULE_DOC, valid_themes)
-        self.save_as_pdf(SCHEDULE_DOC)
+        
+        self.save_as_pdf(SCHEDULE_DOC, self.include_signature)
         save_themes(valid_themes)
 
-    def save_as_pdf(self, doc_path):
+
+    def save_as_pdf(self, doc_path, include_signature):
         try:
             word = comtypes.client.CreateObject('Word.Application')
             word.Visible = False
@@ -171,6 +226,11 @@ class ThemeEditorApp:
             kw_numbers = extract_kw_numbers(schedule_text)
             kw_label = "_".join(kw_numbers) if kw_numbers else "KW_Unknown"
             pdf_path = os.path.splitext(doc_path)[0] + f"_{kw_label}.pdf"
+            
+            if not include_signature:
+                if doc.Paragraphs.Count > 1:
+                    doc.Paragraphs(doc.Paragraphs.Count).Range.Delete()
+            
             doc.SaveAs(os.path.abspath(pdf_path), FileFormat=17)
             doc.Close()
             word.Quit()
