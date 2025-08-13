@@ -14,7 +14,7 @@ def extract_schedules(input_file):
 
     for line in lines:
         current_schedule.append(line)
-        if '-16:00' in line:
+        if '-16:00' in line or '-16:15' in line:
             schedule_chunks.append(current_schedule)
             current_schedule = []
     
@@ -22,3 +22,4 @@ def extract_schedules(input_file):
         weekday_name = weekdays[i % len(weekdays)]
         with open(f"days/{weekday_name}_schedule.txt", 'w') as f:
             f.writelines(schedule)
+
