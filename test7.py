@@ -5,7 +5,18 @@ def clean_schedule(input_file, output_file):
         with open(input_file, 'r', encoding='utf-8') as file:
             schedule_text = file.read()
 
-        cleaned_text = re.sub(r'(Unterrichtsfrei|Sonderveranstaltung|Praxisunterricht|Mittagspause)\d*\s*min?', r'\1', schedule_text)
+        cleaned_text = re.sub(
+            r'(Unterrichtsfrei|Sonderveranstaltung|Praxisunterricht|Mittagspause)\d*\s*min?', 
+            r'\1', 
+            schedule_text
+        )
+
+        cleaned_text = re.sub(
+            r'(Praxisunterricht)t?\b.*?\d*\s*mins?', 
+            r'\1', 
+            cleaned_text, 
+            flags=re.IGNORECASE
+        )
 
         with open(output_file, 'w', encoding='utf-8') as file:
             file.write(cleaned_text)
